@@ -7,62 +7,119 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root { color-scheme: light; }
-  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f6f8fa; margin:0; padding:16px; color:#1f2328; }
-  h1 { font-size:1.2rem; margin:0 0 4px; }
-  .atualizado { font-size:0.8rem; color:#6e7781; margin-bottom:16px; }
-  .card { background:#fff; border:1px solid #d0d7de; border-left-width:6px; border-radius:8px;
-           padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
-  .card-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
-  .badge { font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px; }
-  .rota { font-weight:600; }
-  .voo { font-size:0.85rem; color:#57606a; }
-  .motivo { font-size:0.9rem; margin-bottom:6px; }
-  .detalhe { font-size:0.8rem; color:#57606a; }
-  .conexao { margin-top:8px; padding:6px 8px; border-radius:6px; font-size:0.85rem; }
-  .mapa { height:200px; border-radius:6px; margin-top:8px; }
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0d1117; margin:0; padding:16px; color:#e6edf3;
+    max-width:640px; margin-left:auto; margin-right:auto;
+  }
+  .mono { font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+  h1 { font-size:1.1rem; margin:0 0 2px; font-weight:600; letter-spacing:0.02em; }
+  .atualizado { font-size:0.72rem; color:#8b949e; margin-bottom:16px; }
+
+  .banner { border-radius:10px; padding:12px 14px; margin-bottom:18px; font-weight:600; font-size:0.9rem;
+             border:1px solid currentColor; }
+
+  .timeline { display:flex; align-items:flex-start; margin-bottom:22px; padding:6px 0 0; overflow-x:auto; }
+  .passo { display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
+  .bolinha { width:30px; height:30px; border-radius:50%; color:#0d1117; display:flex;
+              align-items:center; justify-content:center; font-size:0.78rem; font-weight:700; }
+  .bolinha-fim { background:#e6edf3; }
+  .passo-label { font-size:0.68rem; color:#8b949e; margin-top:5px; font-family: ui-monospace, monospace; }
+  .linha { height:2px; background:#30363d; flex:1; min-width:24px; margin:15px 4px 0; }
+
+  .card { background:#161b22; border:1px solid #30363d; border-radius:12px;
+           padding:16px 18px; margin-bottom:14px; }
+  .card-header { display:flex; align-items:center; gap:9px; margin-bottom:8px; flex-wrap:wrap; }
+  .dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .dot-pulse { animation: pulso 1.6s ease-in-out infinite; }
+  @keyframes pulso {
+    0% { box-shadow: 0 0 0 0 currentColor; opacity:1; }
+    70% { box-shadow: 0 0 0 6px transparent; opacity:0.7; }
+    100% { box-shadow: 0 0 0 0 transparent; opacity:1; }
+  }
+  .badge { font-size:0.68rem; font-weight:700; padding:3px 9px; border-radius:999px; margin-left:auto;
+            letter-spacing:0.03em; }
+  .rota { font-weight:700; font-size:1.05rem; font-family: ui-monospace, monospace; }
+  .seta { color:#8b949e; font-weight:400; }
+  .voo { font-size:0.8rem; color:#8b949e; font-family: ui-monospace, monospace; }
+  .motivo { font-size:0.88rem; margin-bottom:10px; color:#c9d1d9; }
+  .detalhe { font-size:0.78rem; color:#8b949e; line-height:1.7; font-family: ui-monospace, monospace; }
+  .detalhe-label { color:#484f58; letter-spacing:0.05em; }
+  .conexao { margin-top:10px; padding:9px 11px; border-radius:8px; font-size:0.82rem; border:1px solid; }
+
+  .progresso { margin:10px 0 12px; }
+  .progresso-trilho { position:relative; height:4px; background:#30363d; border-radius:99px; margin:14px 0 4px; }
+  .progresso-fill { position:absolute; left:0; top:0; height:100%; background:#58a6ff; border-radius:99px; }
+  .progresso-aviao { position:absolute; top:50%; transform:translate(-50%,-50%) rotate(90deg);
+                       font-size:1rem; margin-top:1px; }
+  .progresso-labels { display:flex; justify-content:space-between; font-size:0.7rem; color:#8b949e;
+                        font-family: ui-monospace, monospace; }
+
+  .mapa { height:220px; border-radius:10px; margin-top:8px; filter:saturate(0.9); }
+  .mapa-indisponivel { font-size:0.75rem; color:#484f58; margin-top:10px; font-style:italic; }
+
+  .telemetria { display:flex; gap:18px; margin-top:12px; padding-top:12px; border-top:1px solid #21262d; }
+  .stat { display:flex; flex-direction:column; }
+  .stat-valor { font-family: ui-monospace, monospace; font-size:1rem; font-weight:600; color:#e6edf3; }
+  .stat-label { font-size:0.65rem; color:#8b949e; letter-spacing:0.04em; margin-top:2px; }
 </style>
 </head>
 <body>
-  <h1>Painel do Observador -- Ensaio</h1>
-  <div class="atualizado">Última atualização: 16/07/2026 21:00 UTC (auto, a cada checagem)</div>
+  <h1>✈️ Painel do Observador -- Ensaio</h1>
+  <div class="atualizado">Última atualização: 16/07/2026 21:10 UTC (automático)</div>
+
+  <div class="banner" style="background:rgba(248,81,73,0.15);color:#f85149">Atenção: há um problema que precisa de ação agora.</div>
+
+  <div class='timeline'><div class='passo'><div class='bolinha' style='background:#3fb950'>1</div><div class='passo-label'>POA</div></div><div class='linha'></div><div class='passo'><div class='bolinha' style='background:#f85149'>2</div><div class='passo-label'>GRU</div></div><div class='linha'></div><div class='passo'><div class='bolinha' style='background:#3fb950'>3</div><div class='passo-label'>MUC</div></div><div class='passo'><div class='bolinha bolinha-fim'>&#127937;</div><div class='passo-label'>TSR</div></div></div>
+
   
-    <div class="card" style="border-left-color:#1a7f37">
+    <div class="card">
       <div class="card-header">
-        <span class="badge" style="background:#dafbe1;color:#1a7f37">VERDE</span>
-        <span class="rota">POA &rarr; GRU</span>
+        <span class="dot dot-pulse" style="background:#3fb950"></span>
+        <span class="rota">POA <span class="seta">&rarr;</span> GRU</span>
         <span class="voo">LA3419</span>
-      </div>
-      <div class="motivo">pousou</div>
-      <div class='detalhe'>Partida: 16/07 12:10 UTC · gate 120 · terminal 1</div><div class='detalhe'>Chegada: 16/07 13:42 UTC · terminal 2</div>
-      
-      
-    </div>
-    
-
-    <div class="card" style="border-left-color:#cf222e">
-      <div class="card-header">
-        <span class="badge" style="background:#ffebe9;color:#cf222e">VERMELHO</span>
-        <span class="rota">GRU &rarr; MUC</span>
-        <span class="voo">LH505</span>
-      </div>
-      <div class="motivo">atraso de 40 min</div>
-      <div class='detalhe'>Partida: 15/07 20:50 UTC · gate 301 · terminal 3</div><div class='detalhe'>Chegada: 16/07 13:55 UTC · gate H38 · terminal 2</div>
-      <div class='conexao' style='background:#f0f1f2;color:#6e7781'>Conexão: Conexão em GRU: ainda não dá pra avaliar de forma confiável (chegada e partida parecem ser de dias diferentes -- provavelmente ainda não chegou o dia real desse trecho). Diferença bruta calculada: -1012 min.</div>
-      
-    </div>
-    
-
-    <div class="card" style="border-left-color:#1a7f37">
-      <div class="card-header">
-        <span class="badge" style="background:#dafbe1;color:#1a7f37">VERDE</span>
-        <span class="rota">MUC &rarr; TSR</span>
-        <span class="voo">LH4092</span>
+        <span class="badge" style="background:rgba(63,185,80,0.15);color:#3fb950">VERDE</span>
       </div>
       <div class="motivo">em voo</div>
-      <div class='detalhe'>Partida: 16/07 11:00 UTC · gate G1 · terminal 2</div><div class='detalhe'>Chegada: 16/07 13:28 UTC · terminal 2</div>
-      <div class='conexao' style='background:#f0f1f2;color:#6e7781'>Conexão: Conexão em MUC: ainda não dá pra avaliar de forma confiável (chegada e partida parecem ser de dias diferentes -- provavelmente ainda não chegou o dia real desse trecho). Diferença bruta calculada: -175 min.</div>
+      <div class='progresso'><div class='progresso-trilho'><div class='progresso-fill' style='width:98%'></div><div class='progresso-aviao' style='left:98%'>&#9992;</div></div><div class='progresso-labels'><span>POA</span><span>GRU</span></div></div>
+      <div class='mapa-indisponivel'>📍 Mapa ao vivo indisponível no momento</div>
       
+      <div class='detalhe'><span class='detalhe-label'>PARTIDA</span> 16/07 12:10 UTC · gate 120 · term. 1</div><div class='detalhe'><span class='detalhe-label'>CHEGADA</span> 16/07 13:42 UTC · term. 2</div>
+      
+    </div>
+    
+
+    <div class="card">
+      <div class="card-header">
+        <span class="dot" style="background:#f85149"></span>
+        <span class="rota">GRU <span class="seta">&rarr;</span> MUC</span>
+        <span class="voo">LH505</span>
+        <span class="badge" style="background:rgba(248,81,73,0.15);color:#f85149">VERMELHO</span>
+      </div>
+      <div class="motivo">atraso de 40 min</div>
+      
+      
+      
+      <div class='detalhe'><span class='detalhe-label'>PARTIDA</span> 15/07 20:50 UTC · gate 301 · term. 3</div><div class='detalhe'><span class='detalhe-label'>CHEGADA</span> 16/07 13:55 UTC · gate H38 · term. 2</div>
+      <div class='conexao' style='background:rgba(139,148,158,0.15);color:#8b949e;border-color:#8b949e44'>Conexão em GRU: ainda sem dados suficientes pra avaliar a conexão (dá pra confiar perto do dia da viagem)</div>
+    </div>
+    
+
+    <div class="card">
+      <div class="card-header">
+        <span class="dot dot-pulse" style="background:#3fb950"></span>
+        <span class="rota">MUC <span class="seta">&rarr;</span> TSR</span>
+        <span class="voo">LH4092</span>
+        <span class="badge" style="background:rgba(63,185,80,0.15);color:#3fb950">VERDE</span>
+      </div>
+      <div class="motivo">em voo</div>
+      <div class='progresso'><div class='progresso-trilho'><div class='progresso-fill' style='width:98%'></div><div class='progresso-aviao' style='left:98%'>&#9992;</div></div><div class='progresso-labels'><span>MUC</span><span>TSR</span></div></div>
+      <div class='mapa-indisponivel'>📍 Mapa ao vivo indisponível no momento</div>
+      
+      <div class='detalhe'><span class='detalhe-label'>PARTIDA</span> 16/07 11:00 UTC · gate G1 · term. 2</div><div class='detalhe'><span class='detalhe-label'>CHEGADA</span> 16/07 13:28 UTC · term. 2</div>
+      <div class='conexao' style='background:rgba(139,148,158,0.15);color:#8b949e;border-color:#8b949e44'>Conexão em MUC: ainda sem dados suficientes pra avaliar a conexão (dá pra confiar perto do dia da viagem)</div>
     </div>
     
 </body>
