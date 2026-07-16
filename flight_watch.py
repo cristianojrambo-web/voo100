@@ -354,9 +354,7 @@ def evaluate_connection_buffer(prev_leg, prev_status, next_leg, next_status):
     if real_buffer_min < 0 or real_buffer_min > JANELA_MAX_MIN:
         return {
             "level": "gray",
-            "message": (f"Conexão em {next_leg['origem']}: ainda não dá pra avaliar de forma confiável "
-                        f"(chegada e partida parecem ser de dias diferentes -- provavelmente ainda não "
-                        f"chegou o dia real desse trecho). Diferença bruta calculada: {int(real_buffer_min)} min."),
+            "message": f"ainda sem dados suficientes pra avaliar a conexão (dá pra confiar perto do dia da viagem)",
             "pct_restante": None,
         }
 
@@ -364,15 +362,15 @@ def evaluate_connection_buffer(prev_leg, prev_status, next_leg, next_status):
 
     if pct_restante <= RISK_RED_PCT:
         level = "red"
-        msg = (f"Conexão em {next_leg['origem']} está em RISCO ALTO: restam ~{int(real_buffer_min)} min "
-               f"(era {buffer_min} min). Procure a equipe da companhia aérea assim que desembarcar.")
+        msg = (f"RISCO ALTO: restam ~{int(real_buffer_min)} min (era {buffer_min} min). "
+               f"Procure a equipe da companhia aérea assim que desembarcar.")
     elif pct_restante <= RISK_YELLOW_PCT:
         level = "yellow"
-        msg = (f"Conexão em {next_leg['origem']} está apertada: restam ~{int(real_buffer_min)} min "
-               f"(era {buffer_min} min). Vá direto para o próximo portão sem parar.")
+        msg = (f"apertada: restam ~{int(real_buffer_min)} min (era {buffer_min} min). "
+               f"Vá direto para o próximo portão sem parar.")
     else:
         level = "green"
-        msg = f"Conexão em {next_leg['origem']} segue tranquila: ~{int(real_buffer_min)} min de folga."
+        msg = f"tranquila: ~{int(real_buffer_min)} min de folga."
 
     return {"level": level, "message": msg, "pct_restante": pct_restante}
 
@@ -435,49 +433,103 @@ def _fmt_hora(iso_str):
     return dt.strftime("%d/%m %H:%M UTC")
 
 
+_ICONE_STATUS = {
+    "scheduled": "🕒",
+    "active": "✈️",
+    "landed": "🛬",
+    "cancelled": "🚫",
+    "diverted": "⚠️",
+    "incident": "⚠️",
+}
+
+_NIVEL_PARA_COR = {"red": "vermelho", "yellow": "amarelo", "green": "verde", "gray": "cinza"}
+
+
+def overall_status(trip, statuses, connection_risks):
+    """Pior situação entre todos os trechos + conexões -- pro banner geral do topo."""
+    piores = {"vermelho": 0, "amarelo": 0, "verde": 0, "cinza": 0}
+    for leg in trip["legs"]:
+        cor, _ = traffic_light(statuses.get(leg["id"]))
+        piores[cor] = piores.get(cor, 0) + 1
+    for risk in connection_risks.values():
+        cor = _NIVEL_PARA_COR.get(risk["level"], "cinza")
+        if cor in ("vermelho", "amarelo"):
+            piores[cor] += 1
+
+    if piores["vermelho"]:
+        return "vermelho", "Atenção: há um problema que precisa de ação agora."
+    if piores["amarelo"]:
+        return "amarelo", "Fique de olho: há um atraso ou conexão apertada."
+    return "verde", "Tudo certo até agora."
+
+
+def _timeline_html(trip, statuses):
+    passos = []
+    for i, leg in enumerate(trip["legs"]):
+        cor, _ = traffic_light(statuses.get(leg["id"]))
+        fg = _COR_HEX[cor]
+        passos.append(
+            f"<div class='passo'>"
+            f"<div class='bolinha' style='background:{fg}'>{i + 1}</div>"
+            f"<div class='passo-label'>{leg['origem']}</div>"
+            f"</div>"
+        )
+        if i < len(trip["legs"]) - 1:
+            passos.append("<div class='linha'></div>")
+    passos.append(
+        f"<div class='passo'><div class='bolinha bolinha-fim'>🏁</div>"
+        f"<div class='passo-label'>{trip['legs'][-1]['destino']}</div></div>"
+    )
+    return f"<div class='timeline'>{''.join(passos)}</div>"
+
+
 def _leg_card_html(leg, status, connection_risk, position):
     cor, motivo = traffic_light(status)
     bg, fg = _COR_BG[cor], _COR_HEX[cor]
+    icone = _ICONE_STATUS.get((status or {}).get("status"), "✈️")
 
     detalhes = ""
     if status:
         detalhes = (
-            f"<div class='detalhe'>Partida: {_fmt_hora(status.get('dep_estimated') or status.get('dep_scheduled'))}"
+            f"<div class='detalhe'>🛫 Partida: {_fmt_hora(status.get('dep_estimated') or status.get('dep_scheduled'))}"
             f"{' · gate ' + status['dep_gate'] if status.get('dep_gate') else ''}"
             f"{' · terminal ' + status['dep_terminal'] if status.get('dep_terminal') else ''}</div>"
-            f"<div class='detalhe'>Chegada: {_fmt_hora(status.get('arr_estimated') or status.get('arr_scheduled'))}"
+            f"<div class='detalhe'>🛬 Chegada: {_fmt_hora(status.get('arr_estimated') or status.get('arr_scheduled'))}"
             f"{' · gate ' + status['arr_gate'] if status.get('arr_gate') else ''}"
             f"{' · terminal ' + status['arr_terminal'] if status.get('arr_terminal') else ''}</div>"
         )
 
     mapa_html = ""
-    if position and position.get("lat") and position.get("lon"):
-        mapa_id = f"mapa_{leg['id']}"
-        mapa_html = (
-            f"<div id='{mapa_id}' class='mapa'></div>"
-            f"<script>"
-            f"(function(){{var m=L.map('{mapa_id}',{{attributionControl:false}}).setView([{position['lat']},{position['lon']}],6);"
-            f"L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(m);"
-            f"L.marker([{position['lat']},{position['lon']}]).addTo(m)"
-            f".bindPopup('Alt: {position.get('altitude_m') or '?'}m');"
-            f"}})();"
-            f"</script>"
-        )
+    if status and status.get("status") == "active":
+        if position and position.get("lat") and position.get("lon"):
+            mapa_id = f"mapa_{leg['id']}"
+            mapa_html = (
+                f"<div id='{mapa_id}' class='mapa'></div>"
+                f"<script>"
+                f"(function(){{var m=L.map('{mapa_id}',{{attributionControl:false}}).setView([{position['lat']},{position['lon']}],6);"
+                f"L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(m);"
+                f"L.marker([{position['lat']},{position['lon']}]).addTo(m)"
+                f".bindPopup('Alt: {position.get('altitude_m') or '?'}m');"
+                f"}})();"
+                f"</script>"
+            )
+        else:
+            mapa_html = "<div class='mapa-indisponivel'>📍 Mapa ao vivo indisponível no momento</div>"
 
     conexao_html = ""
     if connection_risk:
-        rc = connection_risk["level"]
-        rc_bg = _COR_BG.get({"red": "vermelho", "yellow": "amarelo", "green": "verde"}.get(rc, "cinza"), "#f0f1f2")
-        rc_fg = _COR_HEX.get({"red": "vermelho", "yellow": "amarelo", "green": "verde"}.get(rc, "cinza"), "#6e7781")
+        rc_cor = _NIVEL_PARA_COR.get(connection_risk["level"], "cinza")
+        rc_bg, rc_fg = _COR_BG[rc_cor], _COR_HEX[rc_cor]
         conexao_html = (f"<div class='conexao' style='background:{rc_bg};color:{rc_fg}'>"
-                         f"Conexão: {connection_risk['message']}</div>")
+                         f"🔗 Conexão em {leg['origem']}: {connection_risk['message']}</div>")
 
     return f"""
     <div class="card" style="border-left-color:{fg}">
       <div class="card-header">
-        <span class="badge" style="background:{bg};color:{fg}">{cor.upper()}</span>
+        <span class="icone">{icone}</span>
         <span class="rota">{leg['origem']} &rarr; {leg['destino']}</span>
         <span class="voo">{leg['flight_iata']}</span>
+        <span class="badge" style="background:{bg};color:{fg}">{cor.upper()}</span>
       </div>
       <div class="motivo">{motivo}</div>
       {detalhes}
@@ -493,6 +545,9 @@ def render_dashboard_html(trip, statuses, connection_risks, positions):
         _leg_card_html(leg, statuses.get(leg["id"]), connection_risks.get(leg["id"]), positions.get(leg["id"]))
         for leg in trip["legs"]
     )
+    timeline = _timeline_html(trip, statuses)
+    banner_cor, banner_texto = overall_status(trip, statuses, connection_risks)
+    banner_bg, banner_fg = _COR_BG[banner_cor], _COR_HEX[banner_cor]
     atualizado = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
 
     html = f"""<!DOCTYPE html>
@@ -505,24 +560,44 @@ def render_dashboard_html(trip, statuses, connection_risks, positions):
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {{ color-scheme: light; }}
-  body {{ font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f6f8fa; margin:0; padding:16px; color:#1f2328; }}
-  h1 {{ font-size:1.2rem; margin:0 0 4px; }}
-  .atualizado {{ font-size:0.8rem; color:#6e7781; margin-bottom:16px; }}
-  .card {{ background:#fff; border:1px solid #d0d7de; border-left-width:6px; border-radius:8px;
-           padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f6f8fa; margin:0;
+          padding:16px; color:#1f2328; max-width:640px; margin-left:auto; margin-right:auto; }}
+  h1 {{ font-size:1.15rem; margin:0 0 2px; }}
+  .atualizado {{ font-size:0.75rem; color:#6e7781; margin-bottom:14px; }}
+
+  .banner {{ border-radius:10px; padding:12px 14px; margin-bottom:16px; font-weight:600; font-size:0.95rem; }}
+
+  .timeline {{ display:flex; align-items:center; margin-bottom:20px; padding:4px 0; overflow-x:auto; }}
+  .passo {{ display:flex; flex-direction:column; align-items:center; flex-shrink:0; }}
+  .bolinha {{ width:32px; height:32px; border-radius:50%; color:#fff; display:flex;
+              align-items:center; justify-content:center; font-size:0.8rem; font-weight:700; }}
+  .bolinha-fim {{ background:#1f2328; }}
+  .passo-label {{ font-size:0.7rem; color:#57606a; margin-top:4px; }}
+  .linha {{ height:3px; background:#d0d7de; flex:1; min-width:24px; margin:0 4px; margin-bottom:20px; }}
+
+  .card {{ background:#fff; border:1px solid #d0d7de; border-left-width:6px; border-radius:10px;
+           padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }}
   .card-header {{ display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }}
-  .badge {{ font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px; }}
-  .rota {{ font-weight:600; }}
+  .icone {{ font-size:1.3rem; }}
+  .badge {{ font-size:0.7rem; font-weight:700; padding:3px 9px; border-radius:999px; margin-left:auto; }}
+  .rota {{ font-weight:700; font-size:1rem; }}
   .voo {{ font-size:0.85rem; color:#57606a; }}
-  .motivo {{ font-size:0.9rem; margin-bottom:6px; }}
-  .detalhe {{ font-size:0.8rem; color:#57606a; }}
-  .conexao {{ margin-top:8px; padding:6px 8px; border-radius:6px; font-size:0.85rem; }}
-  .mapa {{ height:200px; border-radius:6px; margin-top:8px; }}
+  .motivo {{ font-size:0.95rem; margin-bottom:8px; font-weight:500; }}
+  .detalhe {{ font-size:0.8rem; color:#57606a; line-height:1.6; }}
+  .conexao {{ margin-top:10px; padding:8px 10px; border-radius:8px; font-size:0.85rem; }}
+  .mapa {{ height:200px; border-radius:8px; margin-top:10px; }}
+  .mapa-indisponivel {{ font-size:0.75rem; color:#6e7781; margin-top:8px; font-style:italic; }}
 </style>
 </head>
 <body>
-  <h1>Painel do Observador -- {trip['viajante']}</h1>
-  <div class="atualizado">Última atualização: {atualizado} (auto, a cada checagem)</div>
+  <h1>✈️ Painel do Observador -- {trip['viajante']}</h1>
+  <div class="atualizado">Última atualização: {atualizado} (automático)</div>
+
+  <div class="banner" style="background:{banner_bg};color:{banner_fg}">{banner_texto}</div>
+
+  {timeline}
+
   {cards}
 </body>
 </html>"""
