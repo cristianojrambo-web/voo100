@@ -579,7 +579,13 @@ def run_once(trip=None, state_file=None):
     positions = {}
 
     for leg in legs:
-        raw = get_flight_status(leg["flight_iata"], leg["date"])
+        try:
+            raw = get_flight_status(leg["flight_iata"], leg["date"])
+        except Exception as e:
+            print(f"[{leg['id']}] Aviationstack falhou nesta checagem ({e}). Pulando este trecho por agora.")
+            statuses[leg["id"]] = state.get(leg["id"])  # mantém o último estado conhecido
+            continue
+
         new_status = summarize_status(raw)
         statuses[leg["id"]] = new_status
 
@@ -598,10 +604,17 @@ def run_once(trip=None, state_file=None):
             if level in ("red", "yellow", "green"):
                 send_whatsapp(f"[{trip['viajante']} - {leg['origem']}->{leg['destino']}] {msg}")
 
-        # Se o voo está em voo, tenta pegar posição ao vivo (best effort)
+        # Se o voo está em voo, tenta pegar posição ao vivo (best effort).
+        # O OpenSky é um "nice to have" (mapa) -- se falhar (timeout, rede do
+        # runner do GitHub Actions bloqueada, instabilidade do serviço, etc.),
+        # NÃO pode derrubar o resto do monitoramento (avisos, painel, estado).
         if new_status["status"] == "active":
             callsign = new_status.get("callsign_hint") or leg["flight_iata"]
-            pos = get_live_position(callsign)
+            try:
+                pos = get_live_position(callsign)
+            except Exception as e:
+                print(f"[{leg['id']}][mapa] OpenSky indisponível agora ({e}). Seguindo sem mapa.")
+                pos = None
             if pos:
                 print(f"[{leg['id']}][mapa] lat={pos['lat']} lon={pos['lon']} alt={pos['altitude_m']}m")
                 positions[leg["id"]] = pos
