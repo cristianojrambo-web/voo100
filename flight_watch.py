@@ -412,17 +412,19 @@ def print_panel(trip, statuses):
 
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "docs")
 
+# Paleta escura, estilo app de rastreamento de voo (Flighty/FR24) em vez de
+# formulário corporativo claro.
 _COR_HEX = {
-    "verde": "#1a7f37",
-    "amarelo": "#9a6700",
-    "vermelho": "#cf222e",
-    "cinza": "#6e7781",
+    "verde": "#3fb950",
+    "amarelo": "#d29922",
+    "vermelho": "#f85149",
+    "cinza": "#8b949e",
 }
 _COR_BG = {
-    "verde": "#dafbe1",
-    "amarelo": "#fff8c5",
-    "vermelho": "#ffebe9",
-    "cinza": "#f0f1f2",
+    "verde": "rgba(63,185,80,0.15)",
+    "amarelo": "rgba(210,153,34,0.15)",
+    "vermelho": "rgba(248,81,73,0.15)",
+    "cinza": "rgba(139,148,158,0.15)",
 }
 
 
@@ -431,6 +433,20 @@ def _fmt_hora(iso_str):
     if not dt:
         return "--"
     return dt.strftime("%d/%m %H:%M UTC")
+
+
+def flight_progress_pct(status):
+    """% estimado do trajeto já percorrido (baseado em horário, não em GPS real).
+    Só faz sentido pra voo 'active'. Retorna None se não der pra calcular."""
+    if not status or status.get("status") != "active":
+        return None
+    inicio = parse_iso(status.get("dep_actual") or status.get("dep_estimated") or status.get("dep_scheduled"))
+    fim = parse_iso(status.get("arr_estimated") or status.get("arr_scheduled"))
+    if not inicio or not fim or fim <= inicio:
+        return None
+    agora = datetime.now(timezone.utc)
+    pct = (agora - inicio).total_seconds() / (fim - inicio).total_seconds() * 100
+    return max(2, min(98, pct))  # nunca 0 nem 100 cravado, fica sempre visível no meio do caminho
 
 
 _ICONE_STATUS = {
@@ -477,7 +493,7 @@ def _timeline_html(trip, statuses):
         if i < len(trip["legs"]) - 1:
             passos.append("<div class='linha'></div>")
     passos.append(
-        f"<div class='passo'><div class='bolinha bolinha-fim'>🏁</div>"
+        f"<div class='passo'><div class='bolinha bolinha-fim'>&#127937;</div>"
         f"<div class='passo-label'>{trip['legs'][-1]['destino']}</div></div>"
     )
     return f"<div class='timeline'>{''.join(passos)}</div>"
@@ -486,30 +502,58 @@ def _timeline_html(trip, statuses):
 def _leg_card_html(leg, status, connection_risk, position):
     cor, motivo = traffic_light(status)
     bg, fg = _COR_BG[cor], _COR_HEX[cor]
-    icone = _ICONE_STATUS.get((status or {}).get("status"), "✈️")
+    ativo = bool(status and status.get("status") == "active")
+    dot_class = "dot dot-pulse" if ativo else "dot"
 
     detalhes = ""
     if status:
         detalhes = (
-            f"<div class='detalhe'>🛫 Partida: {_fmt_hora(status.get('dep_estimated') or status.get('dep_scheduled'))}"
+            f"<div class='detalhe'><span class='detalhe-label'>PARTIDA</span> "
+            f"{_fmt_hora(status.get('dep_estimated') or status.get('dep_scheduled'))}"
             f"{' · gate ' + status['dep_gate'] if status.get('dep_gate') else ''}"
-            f"{' · terminal ' + status['dep_terminal'] if status.get('dep_terminal') else ''}</div>"
-            f"<div class='detalhe'>🛬 Chegada: {_fmt_hora(status.get('arr_estimated') or status.get('arr_scheduled'))}"
+            f"{' · term. ' + status['dep_terminal'] if status.get('dep_terminal') else ''}</div>"
+            f"<div class='detalhe'><span class='detalhe-label'>CHEGADA</span> "
+            f"{_fmt_hora(status.get('arr_estimated') or status.get('arr_scheduled'))}"
             f"{' · gate ' + status['arr_gate'] if status.get('arr_gate') else ''}"
-            f"{' · terminal ' + status['arr_terminal'] if status.get('arr_terminal') else ''}</div>"
+            f"{' · term. ' + status['arr_terminal'] if status.get('arr_terminal') else ''}</div>"
         )
 
+    progresso_html = ""
+    telemetria_html = ""
     mapa_html = ""
-    if status and status.get("status") == "active":
+    if ativo:
+        pct = flight_progress_pct(status)
+        if pct is not None:
+            progresso_html = (
+                f"<div class='progresso'>"
+                f"<div class='progresso-trilho'>"
+                f"<div class='progresso-fill' style='width:{pct:.0f}%'></div>"
+                f"<div class='progresso-aviao' style='left:{pct:.0f}%'>&#9992;</div>"
+                f"</div>"
+                f"<div class='progresso-labels'><span>{leg['origem']}</span><span>{leg['destino']}</span></div>"
+                f"</div>"
+            )
+
         if position and position.get("lat") and position.get("lon"):
             mapa_id = f"mapa_{leg['id']}"
+            alt_km = round((position.get("altitude_m") or 0) / 1000, 1)
+            vel_kmh = round((position.get("velocity_ms") or 0) * 3.6)
+            heading = round(position.get("heading") or 0)
+            telemetria_html = (
+                f"<div class='telemetria'>"
+                f"<div class='stat'><span class='stat-valor'>{alt_km}</span><span class='stat-label'>km alt.</span></div>"
+                f"<div class='stat'><span class='stat-valor'>{vel_kmh}</span><span class='stat-label'>km/h</span></div>"
+                f"<div class='stat'><span class='stat-valor'>{heading}&deg;</span><span class='stat-label'>rumo</span></div>"
+                f"</div>"
+            )
             mapa_html = (
                 f"<div id='{mapa_id}' class='mapa'></div>"
                 f"<script>"
-                f"(function(){{var m=L.map('{mapa_id}',{{attributionControl:false}}).setView([{position['lat']},{position['lon']}],6);"
-                f"L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(m);"
-                f"L.marker([{position['lat']},{position['lon']}]).addTo(m)"
-                f".bindPopup('Alt: {position.get('altitude_m') or '?'}m');"
+                f"(function(){{var m=L.map('{mapa_id}',{{attributionControl:false,zoomControl:false}})"
+                f".setView([{position['lat']},{position['lon']}],5);"
+                f"L.tileLayer('https://{{s}}.basemaps.cartocdn.com/dark_all/{{z}}/{{x}}/{{y}}{{r}}.png').addTo(m);"
+                f"var icon=L.divIcon({{html:'&#9992;',className:'plane-icon',iconSize:[24,24]}});"
+                f"L.marker([{position['lat']},{position['lon']}],{{icon:icon}}).addTo(m);"
                 f"}})();"
                 f"</script>"
             )
@@ -520,21 +564,23 @@ def _leg_card_html(leg, status, connection_risk, position):
     if connection_risk:
         rc_cor = _NIVEL_PARA_COR.get(connection_risk["level"], "cinza")
         rc_bg, rc_fg = _COR_BG[rc_cor], _COR_HEX[rc_cor]
-        conexao_html = (f"<div class='conexao' style='background:{rc_bg};color:{rc_fg}'>"
-                         f"🔗 Conexão em {leg['origem']}: {connection_risk['message']}</div>")
+        conexao_html = (f"<div class='conexao' style='background:{rc_bg};color:{rc_fg};border-color:{rc_fg}44'>"
+                         f"Conexão em {leg['origem']}: {connection_risk['message']}</div>")
 
     return f"""
-    <div class="card" style="border-left-color:{fg}">
+    <div class="card">
       <div class="card-header">
-        <span class="icone">{icone}</span>
-        <span class="rota">{leg['origem']} &rarr; {leg['destino']}</span>
+        <span class="{dot_class}" style="background:{fg}"></span>
+        <span class="rota">{leg['origem']} <span class="seta">&rarr;</span> {leg['destino']}</span>
         <span class="voo">{leg['flight_iata']}</span>
         <span class="badge" style="background:{bg};color:{fg}">{cor.upper()}</span>
       </div>
       <div class="motivo">{motivo}</div>
+      {progresso_html}
+      {mapa_html}
+      {telemetria_html}
       {detalhes}
       {conexao_html}
-      {mapa_html}
     </div>
     """
 
@@ -559,35 +605,63 @@ def render_dashboard_html(trip, statuses, connection_risks, positions):
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root {{ color-scheme: light; }}
+  :root {{ color-scheme: dark; }}
   * {{ box-sizing: border-box; }}
-  body {{ font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f6f8fa; margin:0;
-          padding:16px; color:#1f2328; max-width:640px; margin-left:auto; margin-right:auto; }}
-  h1 {{ font-size:1.15rem; margin:0 0 2px; }}
-  .atualizado {{ font-size:0.75rem; color:#6e7781; margin-bottom:14px; }}
+  body {{
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0d1117; margin:0; padding:16px; color:#e6edf3;
+    max-width:640px; margin-left:auto; margin-right:auto;
+  }}
+  .mono {{ font-family: ui-monospace, "SF Mono", Consolas, monospace; }}
+  h1 {{ font-size:1.1rem; margin:0 0 2px; font-weight:600; letter-spacing:0.02em; }}
+  .atualizado {{ font-size:0.72rem; color:#8b949e; margin-bottom:16px; }}
 
-  .banner {{ border-radius:10px; padding:12px 14px; margin-bottom:16px; font-weight:600; font-size:0.95rem; }}
+  .banner {{ border-radius:10px; padding:12px 14px; margin-bottom:18px; font-weight:600; font-size:0.9rem;
+             border:1px solid currentColor; }}
 
-  .timeline {{ display:flex; align-items:center; margin-bottom:20px; padding:4px 0; overflow-x:auto; }}
+  .timeline {{ display:flex; align-items:flex-start; margin-bottom:22px; padding:6px 0 0; overflow-x:auto; }}
   .passo {{ display:flex; flex-direction:column; align-items:center; flex-shrink:0; }}
-  .bolinha {{ width:32px; height:32px; border-radius:50%; color:#fff; display:flex;
-              align-items:center; justify-content:center; font-size:0.8rem; font-weight:700; }}
-  .bolinha-fim {{ background:#1f2328; }}
-  .passo-label {{ font-size:0.7rem; color:#57606a; margin-top:4px; }}
-  .linha {{ height:3px; background:#d0d7de; flex:1; min-width:24px; margin:0 4px; margin-bottom:20px; }}
+  .bolinha {{ width:30px; height:30px; border-radius:50%; color:#0d1117; display:flex;
+              align-items:center; justify-content:center; font-size:0.78rem; font-weight:700; }}
+  .bolinha-fim {{ background:#e6edf3; }}
+  .passo-label {{ font-size:0.68rem; color:#8b949e; margin-top:5px; font-family: ui-monospace, monospace; }}
+  .linha {{ height:2px; background:#30363d; flex:1; min-width:24px; margin:15px 4px 0; }}
 
-  .card {{ background:#fff; border:1px solid #d0d7de; border-left-width:6px; border-radius:10px;
-           padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.05); }}
-  .card-header {{ display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }}
-  .icone {{ font-size:1.3rem; }}
-  .badge {{ font-size:0.7rem; font-weight:700; padding:3px 9px; border-radius:999px; margin-left:auto; }}
-  .rota {{ font-weight:700; font-size:1rem; }}
-  .voo {{ font-size:0.85rem; color:#57606a; }}
-  .motivo {{ font-size:0.95rem; margin-bottom:8px; font-weight:500; }}
-  .detalhe {{ font-size:0.8rem; color:#57606a; line-height:1.6; }}
-  .conexao {{ margin-top:10px; padding:8px 10px; border-radius:8px; font-size:0.85rem; }}
-  .mapa {{ height:200px; border-radius:8px; margin-top:10px; }}
-  .mapa-indisponivel {{ font-size:0.75rem; color:#6e7781; margin-top:8px; font-style:italic; }}
+  .card {{ background:#161b22; border:1px solid #30363d; border-radius:12px;
+           padding:16px 18px; margin-bottom:14px; }}
+  .card-header {{ display:flex; align-items:center; gap:9px; margin-bottom:8px; flex-wrap:wrap; }}
+  .dot {{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }}
+  .dot-pulse {{ animation: pulso 1.6s ease-in-out infinite; }}
+  @keyframes pulso {{
+    0% {{ box-shadow: 0 0 0 0 currentColor; opacity:1; }}
+    70% {{ box-shadow: 0 0 0 6px transparent; opacity:0.7; }}
+    100% {{ box-shadow: 0 0 0 0 transparent; opacity:1; }}
+  }}
+  .badge {{ font-size:0.68rem; font-weight:700; padding:3px 9px; border-radius:999px; margin-left:auto;
+            letter-spacing:0.03em; }}
+  .rota {{ font-weight:700; font-size:1.05rem; font-family: ui-monospace, monospace; }}
+  .seta {{ color:#8b949e; font-weight:400; }}
+  .voo {{ font-size:0.8rem; color:#8b949e; font-family: ui-monospace, monospace; }}
+  .motivo {{ font-size:0.88rem; margin-bottom:10px; color:#c9d1d9; }}
+  .detalhe {{ font-size:0.78rem; color:#8b949e; line-height:1.7; font-family: ui-monospace, monospace; }}
+  .detalhe-label {{ color:#484f58; letter-spacing:0.05em; }}
+  .conexao {{ margin-top:10px; padding:9px 11px; border-radius:8px; font-size:0.82rem; border:1px solid; }}
+
+  .progresso {{ margin:10px 0 12px; }}
+  .progresso-trilho {{ position:relative; height:4px; background:#30363d; border-radius:99px; margin:14px 0 4px; }}
+  .progresso-fill {{ position:absolute; left:0; top:0; height:100%; background:#58a6ff; border-radius:99px; }}
+  .progresso-aviao {{ position:absolute; top:50%; transform:translate(-50%,-50%) rotate(90deg);
+                       font-size:1rem; margin-top:1px; }}
+  .progresso-labels {{ display:flex; justify-content:space-between; font-size:0.7rem; color:#8b949e;
+                        font-family: ui-monospace, monospace; }}
+
+  .mapa {{ height:220px; border-radius:10px; margin-top:8px; filter:saturate(0.9); }}
+  .mapa-indisponivel {{ font-size:0.75rem; color:#484f58; margin-top:10px; font-style:italic; }}
+
+  .telemetria {{ display:flex; gap:18px; margin-top:12px; padding-top:12px; border-top:1px solid #21262d; }}
+  .stat {{ display:flex; flex-direction:column; }}
+  .stat-valor {{ font-family: ui-monospace, monospace; font-size:1rem; font-weight:600; color:#e6edf3; }}
+  .stat-label {{ font-size:0.65rem; color:#8b949e; letter-spacing:0.04em; margin-top:2px; }}
 </style>
 </head>
 <body>
