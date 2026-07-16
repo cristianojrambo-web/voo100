@@ -1,0 +1,40 @@
+name: Flight Watch
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # a cada 15 min, o tempo todo (barato -- ~15s de execucao por vez)
+  workflow_dispatch: {}       # permite rodar manualmente pelo botao "Run workflow" no GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instala dependencias
+        run: pip install -r requirements.txt
+
+      - name: Roda o monitor
+        env:
+          AVIATIONSTACK_KEY: ${{ secrets.AVIATIONSTACK_KEY }}
+          OPENSKY_CLIENT_ID: ${{ secrets.OPENSKY_CLIENT_ID }}
+          OPENSKY_CLIENT_SECRET: ${{ secrets.OPENSKY_CLIENT_SECRET }}
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+        run: python flight_watch.py
+
+      - name: Salva o estado e o painel atualizados de volta no repo
+        run: |
+          git config user.name "flight-watch-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add flight_watch_state.json docs/index.html
+          [ -f flight_watch_state.test.json ] && git add flight_watch_state.test.json || true
+          git diff --quiet --cached || git commit -m "Atualiza status do voo [skip ci]"
+          git push

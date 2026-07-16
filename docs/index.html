@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do Observador -- Ensaio</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#f6f8fa; margin:0; padding:16px; color:#1f2328; }
+  h1 { font-size:1.2rem; margin:0 0 4px; }
+  .atualizado { font-size:0.8rem; color:#6e7781; margin-bottom:16px; }
+  .card { background:#fff; border:1px solid #d0d7de; border-left-width:6px; border-radius:8px;
+           padding:12px 14px; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .card-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+  .badge { font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:999px; }
+  .rota { font-weight:600; }
+  .voo { font-size:0.85rem; color:#57606a; }
+  .motivo { font-size:0.9rem; margin-bottom:6px; }
+  .detalhe { font-size:0.8rem; color:#57606a; }
+  .conexao { margin-top:8px; padding:6px 8px; border-radius:6px; font-size:0.85rem; }
+  .mapa { height:200px; border-radius:6px; margin-top:8px; }
+</style>
+</head>
+<body>
+  <h1>Painel do Observador -- Ensaio</h1>
+  <div class="atualizado">Última atualização: 16/07/2026 20:44 UTC (auto, a cada checagem)</div>
+  
+    <div class="card" style="border-left-color:#1a7f37">
+      <div class="card-header">
+        <span class="badge" style="background:#dafbe1;color:#1a7f37">VERDE</span>
+        <span class="rota">POA &rarr; GRU</span>
+        <span class="voo">LA3419</span>
+      </div>
+      <div class="motivo">pousou</div>
+      <div class='detalhe'>Partida: 16/07 12:10 UTC · gate 120 · terminal 1</div><div class='detalhe'>Chegada: 16/07 13:42 UTC · terminal 2</div>
+      
+      
+    </div>
+    
+
+    <div class="card" style="border-left-color:#cf222e">
+      <div class="card-header">
+        <span class="badge" style="background:#ffebe9;color:#cf222e">VERMELHO</span>
+        <span class="rota">GRU &rarr; MUC</span>
+        <span class="voo">LH505</span>
+      </div>
+      <div class="motivo">atraso de 40 min</div>
+      <div class='detalhe'>Partida: 15/07 20:50 UTC · gate 301 · terminal 3</div><div class='detalhe'>Chegada: 16/07 13:55 UTC · gate H38 · terminal 2</div>
+      <div class='conexao' style='background:#f0f1f2;color:#6e7781'>Conexão: Conexão em GRU: ainda não dá pra avaliar de forma confiável (chegada e partida parecem ser de dias diferentes -- provavelmente ainda não chegou o dia real desse trecho). Diferença bruta calculada: -1012 min.</div>
+      
+    </div>
+    
+
+    <div class="card" style="border-left-color:#1a7f37">
+      <div class="card-header">
+        <span class="badge" style="background:#dafbe1;color:#1a7f37">VERDE</span>
+        <span class="rota">MUC &rarr; TSR</span>
+        <span class="voo">LH4092</span>
+      </div>
+      <div class="motivo">em voo</div>
+      <div class='detalhe'>Partida: 16/07 11:00 UTC · gate G1 · terminal 2</div><div class='detalhe'>Chegada: 16/07 13:28 UTC · terminal 2</div>
+      <div class='conexao' style='background:#f0f1f2;color:#6e7781'>Conexão: Conexão em MUC: ainda não dá pra avaliar de forma confiável (chegada e partida parecem ser de dias diferentes -- provavelmente ainda não chegou o dia real desse trecho). Diferença bruta calculada: -175 min.</div>
+      
+    </div>
+    
+</body>
+</html>
