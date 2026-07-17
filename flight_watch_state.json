@@ -37,7 +37,7 @@
     "dep_estimated": "2026-07-17T11:00:00+00:00",
     "dep_actual": null,
     "dep_delay_min": null,
-    "dep_gate": "G40",
+    "dep_gate": "G34",
     "dep_terminal": "2",
     "arr_scheduled": "2026-07-17T13:30:00+00:00",
     "arr_estimated": null,
