@@ -1,6 +1,6 @@
 {
   "leg1_poa_gru": {
-    "status": "scheduled",
+    "status": "active",
     "dep_scheduled": "2026-07-17T12:10:00+00:00",
     "dep_estimated": "2026-07-17T12:10:00+00:00",
     "dep_actual": null,
