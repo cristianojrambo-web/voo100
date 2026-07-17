@@ -32,17 +32,17 @@
     "callsign_hint": "DLH505"
   },
   "leg3_muc_tsr": {
-    "status": "active",
+    "status": "scheduled",
     "dep_scheduled": "2026-07-17T11:00:00+00:00",
     "dep_estimated": "2026-07-17T11:00:00+00:00",
-    "dep_actual": null,
-    "dep_delay_min": null,
+    "dep_actual": "2026-07-17T12:16:00+00:00",
+    "dep_delay_min": 67,
     "dep_gate": "G39",
     "dep_terminal": "2",
     "arr_scheduled": "2026-07-17T13:30:00+00:00",
-    "arr_estimated": null,
+    "arr_estimated": "2026-07-17T14:37:00+00:00",
     "arr_actual": null,
-    "arr_delay_min": 66,
+    "arr_delay_min": 67,
     "arr_gate": null,
     "arr_terminal": "2",
     "callsign_hint": "DLH4092"
