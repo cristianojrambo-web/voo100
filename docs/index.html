@@ -68,11 +68,11 @@
 </head>
 <body>
   <h1>✈️ Painel do Observador -- Ensaio</h1>
-  <div class="atualizado">Última atualização: 17/07/2026 23:32 UTC (automático)</div>
+  <div class="atualizado">Última atualização: 18/07/2026 01:04 UTC (automático)</div>
 
   <div class="banner" style="background:rgba(248,81,73,0.15);color:#f85149">Atenção: há um problema que precisa de ação agora.</div>
 
-  <div class='timeline'><div class='passo'><div class='bolinha' style='background:#3fb950'>1</div><div class='passo-label'>POA</div></div><div class='linha'></div><div class='passo'><div class='bolinha' style='background:#d29922'>2</div><div class='passo-label'>GRU</div></div><div class='linha'></div><div class='passo'><div class='bolinha' style='background:#f85149'>3</div><div class='passo-label'>MUC</div></div><div class='passo'><div class='bolinha bolinha-fim'>&#127937;</div><div class='passo-label'>TSR</div></div></div>
+  <div class='timeline'><div class='passo'><div class='bolinha' style='background:#3fb950'>1</div><div class='passo-label'>POA</div></div><div class='linha'></div><div class='passo'><div class='bolinha' style='background:#f85149'>2</div><div class='passo-label'>GRU</div></div><div class='linha'></div><div class='passo'><div class='bolinha' style='background:#f85149'>3</div><div class='passo-label'>MUC</div></div><div class='passo'><div class='bolinha bolinha-fim'>&#127937;</div><div class='passo-label'>TSR</div></div></div>
 
   
     <div class="card">
@@ -93,15 +93,15 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="dot dot-pulse" style="background:#d29922"></span>
+        <span class="dot dot-pulse" style="background:#f85149"></span>
         <span class="rota">GRU <span class="seta">&rarr;</span> MUC</span>
         <span class="voo">LH505</span>
-        <span class="badge" style="background:rgba(210,153,34,0.15);color:#d29922">AMARELO</span>
+        <span class="badge" style="background:rgba(248,81,73,0.15);color:#f85149">VERMELHO</span>
       </div>
-      <div class="motivo">atraso de 25 min</div>
-      <div class='progresso'><div class='progresso-trilho'><div class='progresso-fill' style='width:17%'></div><div class='progresso-aviao' style='left:17%'>&#9992;</div></div><div class='progresso-labels'><span>GRU</span><span>MUC</span></div></div>
-      <div class='mapa-indisponivel'>📍 Mapa ao vivo indisponível no momento</div>
-      
+      <div class="motivo">atraso de 45 min</div>
+      <div class='progresso'><div class='progresso-trilho'><div class='progresso-fill' style='width:26%'></div><div class='progresso-aviao' style='left:26%'>&#9992;</div></div><div class='progresso-labels'><span>GRU</span><span>MUC</span></div></div>
+      <div id='mapa_leg2_gru_muc' class='mapa'></div><script>(function(){var m=L.map('mapa_leg2_gru_muc',{attributionControl:false,zoomControl:false}).setView([-23.0256,-46.1011],5);L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(m);var icon=L.divIcon({html:'&#9992;',className:'plane-icon',iconSize:[24,24]});L.marker([-23.0256,-46.1011],{icon:icon}).addTo(m);})();</script>
+      <div class='telemetria'><div class='stat'><span class='stat-valor'>3.9</span><span class='stat-label'>km alt.</span></div><div class='stat'><span class='stat-valor'>695</span><span class='stat-label'>km/h</span></div><div class='stat'><span class='stat-valor'>19&deg;</span><span class='stat-label'>rumo</span></div></div>
       <div class='detalhe'><span class='detalhe-label'>PARTIDA</span> 17/07 20:50 UTC · gate 307 · term. 3</div><div class='detalhe'><span class='detalhe-label'>CHEGADA</span> 18/07 13:15 UTC · gate M21 · term. 2</div>
       <div class='conexao' style='background:rgba(63,185,80,0.15);color:#3fb950;border-color:#3fb95044'>Conexão em GRU: tranquila: ~430 min de folga.</div>
     </div>

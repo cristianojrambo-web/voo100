@@ -26,7 +26,7 @@
     "arr_scheduled": "2026-07-18T13:15:00+00:00",
     "arr_estimated": null,
     "arr_actual": null,
-    "arr_delay_min": 25,
+    "arr_delay_min": 45,
     "arr_gate": "M21",
     "arr_terminal": "2",
     "callsign_hint": "DLH505"
