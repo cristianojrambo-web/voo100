@@ -283,6 +283,15 @@ def parse_iso(dt_str):
 
 
 def detect_events(leg, old, new):
+    """
+    old vem do estado salvo (dict com os campos de summarize_status + a chave
+    interna "_notified_status", que é a ÚLTIMA situação sobre a qual já
+    mandamos aviso -- não necessariamente igual ao último status lido).
+    Usamos "_notified_status" (em vez do status bruto da última leitura) pra
+    decidir se manda "decolou"/"pousou"/"cancelado" de novo, porque a API às
+    vezes oscila entre checagens (ou duas execuções do Actions podem rodar
+    quase juntas) e comparar só com a última leitura gera aviso repetido.
+    """
     events = []
     if old is None:
         events.append(("info", f"Monitoramento iniciado para {leg['id']} ({leg['flight_iata']} em {leg['date']})."))
@@ -292,8 +301,8 @@ def detect_events(leg, old, new):
     # de voo (sem filtro de data). Se o horário de partida programado mudou
     # de um dia pro outro entre duas checagens, não é um "atraso" nem uma
     # "mudança de gate" de verdade -- é simplesmente outra ocorrência do
-    # mesmo número de voo (ex: virou a semana). Nesse caso, só avisa que é
-    # uma instância nova e não compara os outros campos.
+    # mesmo número de voo (ex: virou o dia). Nesse caso, só avisa que é uma
+    # instância nova e reinicia o marcador de "já notificado".
     old_dep_day = (old.get("dep_scheduled") or "")[:10]
     new_dep_day = (new.get("dep_scheduled") or "")[:10]
     if old_dep_day and new_dep_day and old_dep_day != new_dep_day:
@@ -301,13 +310,14 @@ def detect_events(leg, old, new):
                                  f"({old_dep_day} -> {new_dep_day}). Reiniciando comparação."))
         return events
 
-    if old["status"] != new["status"]:
+    notified_status = old.get("_notified_status", old.get("status"))
+    if notified_status != new["status"]:
         if new["status"] == "cancelled":
             events.append(("red", f"O voo {leg['flight_iata']} ({leg['origem']}->{leg['destino']}) foi CANCELADO. "
                                     f"Vá até o balcão da companhia aérea em {leg['origem']} e solicite remarcação imediatamente."))
         elif new["status"] == "diverted":
             events.append(("red", f"O voo {leg['flight_iata']} foi DESVIADO de rota. Acompanhe o novo destino/pouso e procure a companhia aérea."))
-        elif new["status"] == "active" and old["status"] == "scheduled":
+        elif new["status"] == "active" and notified_status == "scheduled":
             events.append(("green", f"O voo {leg['flight_iata']} decolou."))
         elif new["status"] == "landed":
             events.append(("green", f"O voo {leg['flight_iata']} pousou em {leg['destino']}."))
@@ -768,6 +778,9 @@ def run_once(trip=None, state_file=None):
                 print(f"[{leg['id']}][mapa] lat={pos['lat']} lon={pos['lon']} alt={pos['altitude_m']}m")
                 positions[leg["id"]] = pos
 
+        # Marca que já consideramos/avisamos esse status, pra não repetir
+        # "decolou"/"pousou"/"cancelado" se a API oscilar numa próxima leitura.
+        new_status["_notified_status"] = new_status["status"]
         state[leg["id"]] = new_status
 
     # Avalia buffers de conexão entre trechos consecutivos

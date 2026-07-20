@@ -1,9 +1,29 @@
 name: Flight Watch
 
+# IMPORTANTE -- cota da Aviationstack (plano free): 100 requisicoes/MES no
+# total (confirmado na pagina oficial de precos), nao 500 como uma fonte
+# secundaria sugeria. Com 3 trechos monitorados, cada execucao gasta 3
+# requisicoes. Rodando a cada 20 min o tempo todo, isso estouraria a cota
+# em menos de um dia.
+#
+# Por isso o uso correto e: manter esse workflow DESABILITADO (Actions ->
+# Flight Watch -> "..." -> Disable workflow) na maior parte do tempo, e só
+# reativar (Enable workflow) 1-2 dias antes da viagem real, desligando de
+# novo depois que ela terminar. Esse cron abaixo já vem numa frequencia
+# segura para os poucos dias de uma viagem (a cada 20 min = ~216
+# requisicoes/dia com 3 trechos -- ok para os 2-3 dias de viagem, mas NAO
+# para rodar o mes inteiro).
+
 on:
   schedule:
-    - cron: '*/15 * * * *'   # a cada 15 min, o tempo todo (barato -- ~15s de execucao por vez)
+    - cron: '*/20 * * * *'
   workflow_dispatch: {}       # permite rodar manualmente pelo botao "Run workflow" no GitHub
+
+# Impede que duas execucoes rodem ao mesmo tempo (evita ler o mesmo estado
+# "antigo" em paralelo e mandar avisos duplicados, ou conflito no git push).
+concurrency:
+  group: flight-watch
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -34,6 +54,7 @@ jobs:
         run: |
           git config user.name "flight-watch-bot"
           git config user.email "actions@users.noreply.github.com"
+          git pull --rebase
           git add flight_watch_state.json docs/index.html
           [ -f flight_watch_state.test.json ] && git add flight_watch_state.test.json || true
           git diff --quiet --cached || git commit -m "Atualiza status do voo [skip ci]"
